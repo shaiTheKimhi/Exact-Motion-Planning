@@ -52,7 +52,7 @@ def get_visibility_graph(obstacles: List[Polygon], source=None, dest=None) -> Li
     for ob in obstacles:
         points += list(ob.exterior.coords)
     for p1 in points:
-        for p2 in points:
+        for p2 in points: #for duplications elimination we need to take p2 from points[i:] where i is the index of p1 at points
             if p2 == p1:
                 continue
             #check edge possiblity
@@ -60,6 +60,30 @@ def get_visibility_graph(obstacles: List[Polygon], source=None, dest=None) -> Li
             if check_edge_validity(obstacles, edge):
                 edges.append(edge)
     return edges #Until now, works with O(n^3) complexity, could be reduced to O(n^2logn) if sorting obstacles by bounds and ignoring check with non relevant obstacles
+
+#TODO
+def build_graph(edges: List[LineString]):
+    """
+    Build graph from set of vertices
+    :param edges, list of edges
+    :return adjacency dictionary representing edges of the graph
+    """
+    adjancency = {}
+    for line in edges:
+        p1, p2 = line.coords
+        if p1 in adjancency.keys():
+            adjancency[p1].append(p2)
+        else:
+            adjancency[p1] = [p2]
+
+    return adjancency
+
+#TODO
+def get_shorest_path(edges: List[LineString]):
+    graph = build_graph(edges)
+
+
+    pass
 
 
 
