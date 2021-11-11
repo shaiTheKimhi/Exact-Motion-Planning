@@ -4,7 +4,7 @@ from typing import List, Tuple
 
 from Plotter import Plotter
 from shapely.geometry.polygon import Polygon, LineString
-
+from heapq import heappush, heappop
 
 # TODO
 def get_minkowsky_sum(original_shape: Polygon, r: float) -> Polygon:
@@ -78,13 +78,80 @@ def build_graph(edges: List[LineString]):
 
     return adjancency
 
+
+
+def expand(graph, node, openheap, close_list, prev={}): 
+    """
+    Recieves the graph and a certain vertex and pushes list of close vertices to vertex list 
+    (two identical vertices will remain only with smallest cost)
+    list will be sorted
+    :param graph, adjacency dictionary representing graph
+    :param node, the vertex to expand and it's cost from source
+    :param openheap, the heap of open vertices with their respective costs (from )
+    :close_list, a list with all nodes that were closed
+    """
+    cost = node[0]
+    vertex = node[1]
+    if vertex in close_list:
+        return
+    prev[vertex] = node[2]
+
+    neighbors = graph[vertex]
+    for v2 in neighbors:
+        #for dijkstra, if vertex is in close list, we would never have to open it again
+        if v2 in close_list:
+            continue
+        x1, y1 = vertex[0], vertex[1]
+        x2, y2 = v2[0], v2[1]
+        c2 = ((x2-x1)**2 + (y2-y1)**2)**0.5
+        n = (c2 + cost, v2, vertex) #cost, vertex, previous vertex
+        heappush(openheap, n)
+    close_list.append(vertex)
+
+
+def dijkstra(graph, dest, openheap=[], close_list=[], prev={}):
+    """
+    Returns the shortest path from node to dest with given path
+    :param graph, adjacency dictionary representing graph
+    :param dest, the destination of the search
+    :param path, the path traversed in the recursive search
+    :param openheap, the heap of open vertices with their respective costs (from )
+    :close_list, a list with all nodes that were closed
+    """
+    node = heappop(openheap)
+    v = node[1] #node is of type (cost,v)
+    #if arrived at destination, return path concatenated with last vertex
+    if v == dest:
+        prev[v] = node[2]
+        return prev
+    
+    ##TODO: we have a problem, node to open must consist of full path as well as cost
+
+    expand(graph, node, openheap, close_list, prev) #expand current vertex neighbors
+
+    return dijkstra(graph, dest, openheap, close_list, prev) #run dijkstra further until a path is found
+    
+
+
+
 #TODO
-def get_shorest_path(edges: List[LineString]):
+def get_shorest_path(edges: List[LineString], source=None, dest=None):
     graph = build_graph(edges)
+    openheap = [(0,source, None)]
+    close_list = []
+    
 
-
-    pass
-
+    prev_list = dijkstra(graph, dest, openheap, close_list)
+    #rebuild path from prev_list
+    path = []
+    v = dest
+    while v != source:
+        path.append(v)
+        v = prev_list[v]
+    path.append(source)
+    path = path[::-1]
+    return path
+    return LineString(path)
 
 
 def is_valid_file(parser, arg):
