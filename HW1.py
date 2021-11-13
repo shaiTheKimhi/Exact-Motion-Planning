@@ -95,7 +95,7 @@ def check_edge_validity(obstacles: List[Polygon], edge: LineString):
                 continue
             sides = LineString(list(ob.exterior.coords))
             x = edge.intersection(sides)
-            if type(x) is LineString: #intersection is not an edge of the polygon
+            if type(x) is LineString and len(x.coords) == 2: #intersection is not an edge of the polygon
                 continue
             #print(edge.intersection(ob))
             return False
@@ -120,6 +120,15 @@ def get_visibility_graph(obstacles: List[Polygon], source=None, dest=None) -> Li
     for ob in obstacles:
         points += list(ob.exterior.coords)
     for p1 in points:
+        if p1[0] == -3 and p1[1] == 0:
+            for p2 in points:
+                if p2 == p1:
+                    continue
+                # check edge possiblity
+                edge = LineString([p1, p2])
+                if check_edge_validity(obstacles, edge):
+                    check_edge_validity(obstacles, edge)
+
         for p2 in points: #for duplications elimination we need to take p2 from points[i:] where i is the index of p1 at points
             if p2 == p1:
                 continue
@@ -189,6 +198,8 @@ def uniform_cost_search(graph, dest, openheap=[], close_nodes={}, prev={}):
     :param openheap, the heap of open vertices with their respective costs (from )
     :close_list, a list with all nodes that were closed
     """
+    if len(openheap) == 0:
+        return None, None
     node = heappop(openheap)
     v = node[1] #node is of type (cost,v)
     #if arrived at destination, return path concatenated with last vertex
@@ -220,6 +231,8 @@ def get_shorest_path(edges: List[LineString], source=None, dest=None):
     prev_list = AVL_Tree().insert(None, (float('inf'), 0))
 
     prev_list, cost = uniform_cost_search(graph, dest, openheap, close_nodes, prev_list)
+    if prev_list is None:
+        return [], -1
     #rebuild path from prev_list
     path = []
     v = dest
@@ -304,7 +317,7 @@ if __name__ == '__main__':
     plotter3.add_obstacles(workspace_obstacles)
     plotter3.add_robot(dest, dist)
     plotter3.add_visibility_graph(lines)
-    plotter3.add_shorterst_path(list(shortest_path))
+    plotter3.add_shorterst_path(list(shortest_path)) #this line works only when a path exists
 
 
     plotter3.show_graph()
