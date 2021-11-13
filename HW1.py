@@ -5,8 +5,17 @@ from typing import List, Tuple
 from Plotter import Plotter
 from shapely.geometry.polygon import Polygon, LineString
 from heapq import heappush, heappop
+import numpy as np
 
-# TODO
+from utils.AVL import TreeNode, AVL_Tree
+
+
+def is_ccw(points):
+    points_local = np.concatenate([points, [points[0], points[1]]])
+    signed_area = sum(points_local[i,0]*(points_local[i+1,1]-points_local[i-1,1]) for i in range(1, len(points) + 1))/2.0
+    return signed_area >= 0.
+
+
 def get_minkowsky_sum(original_shape: Polygon, r: float) -> Polygon:
     """
     Get the polygon representing the Minkowsky sum
@@ -14,7 +23,67 @@ def get_minkowsky_sum(original_shape: Polygon, r: float) -> Polygon:
     :param r: The radius of the rhombus
     :return: The polygon composed from the Minkowsky sums
     """
-    pass
+
+    # creating numpy arrays of polygons points
+    points_poly = np.array(original_shape.exterior.xy).T
+
+    # no double first point (start and end are not the same)
+    if np.all(points_poly[0] == points_poly[-1]):
+        points_poly = points_poly[:-1]
+
+    # make sure not ccw
+    if not is_ccw(points_poly):
+        points_poly = points_poly[::-1]
+
+    # first point is with lowest y (if more than one then the one with the lowest x as well)
+    min_y_points = points_poly[np.where(points_poly[:,1] == points_poly[np.argmin(points_poly[:,1]),1])]
+    first_point = min_y_points[np.argmin(min_y_points[:,0])]
+    first_index = np.where(np.all(first_point == points_poly, axis=-1))[0][0]
+
+    # initialize with adding the first two points to the end as werr
+    points_poly = np.concatenate((points_poly[first_index:], points_poly[:first_index]), axis=0)
+    points_poly = np.concatenate([points_poly, [points_poly[0], points_poly[1]]])
+
+    # Because the robot is symmetric, then -R(0,0) = R(0,0)
+    points_robot = np.array([[0., -r],
+                             [r, 0.],
+                             [0., r],
+                             [-r, 0.],
+                             [0., -r],
+                             [r, 0.]])
+
+    # looping to Minkowski sum
+    i_poly = 0
+    i_robot = 0
+    out_points = []
+    while i_poly < len(points_poly) - 2 or i_robot < len(points_robot) - 2:
+        # update points
+        point_poly_curr = points_poly[i_poly]
+        point_poly_next = points_poly[i_poly + 1]
+        point_robot_curr = points_robot[i_robot]
+        point_robot_next = points_robot[i_robot + 1]
+
+        # add point
+        out_points.append(point_poly_curr + point_robot_curr)
+
+        # calc angles (when minimum angle=0 and continues after 2*pi)
+        angle_poly = np.arctan2(point_poly_next[1] - point_poly_curr[1], point_poly_next[0] - point_poly_curr[0])
+        angle_robot = np.arctan2(point_robot_next[1] - point_robot_curr[1], point_robot_next[0] - point_robot_curr[0])
+        if angle_poly < 0 or i_poly >= len(points_poly) - 2:
+            angle_poly += 2 * np.pi
+        if angle_robot < 0 or i_robot >= len(points_robot) - 2:
+            angle_robot += 2 * np.pi
+
+        # continue with relevant polygon ccw
+        if angle_poly > angle_robot:
+            i_robot += 1
+        elif angle_poly < angle_robot:
+            i_poly += 1
+        else:
+            i_poly += 1
+            i_robot += 1
+    out_points = np.array(out_points)
+    return Polygon(out_points)
 
 # Check edge is valid in visibility graph
 #TODO: improve this check by checking intersection only with edges of polygons (List of LineStrings) which is a point and not one of the given points
@@ -33,7 +102,6 @@ def check_edge_validity(obstacles: List[Polygon], edge: LineString):
     return True
 
 
-# TODO
 def get_visibility_graph(obstacles: List[Polygon], source=None, dest=None) -> List[LineString]:
     """
     Get The visibility graph of a given map
@@ -61,8 +129,8 @@ def get_visibility_graph(obstacles: List[Polygon], source=None, dest=None) -> Li
                 edges.append(edge)
     return edges #Until now, works with O(n^3) complexity, could be reduced to O(n^2logn) if sorting obstacles by bounds and ignoring check with non relevant obstacles
 
-#TODO
-def build_graph(edges: List[LineString]):
+
+def build_graph(edges: List[LineString]): 
     """
     Build graph from set of vertices
     :param edges, list of edges
@@ -79,8 +147,8 @@ def build_graph(edges: List[LineString]):
     return adjancency
 
 
-
-def expand(graph, node, openheap, close_list, prev={}): 
+#TODO: fix algorithm by defining class 'node' with parent and cost, 
+def expand(graph, node, openheap, close_nodes, prev={}): 
     """
     Recieves the graph and a certain vertex and pushes list of close vertices to vertex list 
     (two identical vertices will remain only with smallest cost)
@@ -88,28 +156,31 @@ def expand(graph, node, openheap, close_list, prev={}):
     :param graph, adjacency dictionary representing graph
     :param node, the vertex to expand and it's cost from source
     :param openheap, the heap of open vertices with their respective costs (from )
-    :close_list, a list with all nodes that were closed
+    :close_nodes, mapping every node to a boolean stating whether node is closed or open
     """
     cost = node[0]
     vertex = node[1]
-    if vertex in close_list:
-        return
-    prev[vertex] = node[2]
+
+    if close_nodes[vertex]: #this is important for vertices to be expanded only by the smallest cost possible
+        return close_nodes, prev
+    prev = AVL_Tree().insert(prev, vertex, node[2])
+    #prev[vertex] = node[2]
 
     neighbors = graph[vertex]
     for v2 in neighbors:
-        #for dijkstra, if vertex is in close list, we would never have to open it again
-        if v2 in close_list:
-            continue
+        #for uniform_cost_search, if vertex is in close list, we would never have to open it again
+        #if close_nodes[v2]:
+        #    continue
         x1, y1 = vertex[0], vertex[1]
         x2, y2 = v2[0], v2[1]
         c2 = ((x2-x1)**2 + (y2-y1)**2)**0.5
         n = (c2 + cost, v2, vertex) #cost, vertex, previous vertex
         heappush(openheap, n)
-    close_list.append(vertex)
+    close_nodes = AVL_Tree().insert(close_nodes, vertex, True)
+    return close_nodes, prev
 
 
-def dijkstra(graph, dest, openheap=[], close_list=[], prev={}):
+def uniform_cost_search(graph, dest, openheap=[], close_nodes={}, prev={}):
     """
     Returns the shortest path from node to dest with given path
     :param graph, adjacency dictionary representing graph
@@ -122,36 +193,45 @@ def dijkstra(graph, dest, openheap=[], close_list=[], prev={}):
     v = node[1] #node is of type (cost,v)
     #if arrived at destination, return path concatenated with last vertex
     if v == dest:
-        prev[v] = node[2]
-        return prev
+        prev = AVL_Tree().insert(prev, v, node[2])
+        #prev[v] = node[2]
+        return prev, node[0]
     
-    ##TODO: we have a problem, node to open must consist of full path as well as cost
+    close_nodes, prev = expand(graph, node, openheap, close_nodes, prev) #expand current vertex neighbors
 
-    expand(graph, node, openheap, close_list, prev) #expand current vertex neighbors
-
-    return dijkstra(graph, dest, openheap, close_list, prev) #run dijkstra further until a path is found
+    return uniform_cost_search(graph, dest, openheap, close_nodes, prev) #run uniform_cost_search further until a path is found
     
 
 
 
-#TODO
+#since using AVL tree implementation for the close search and prev_list, the time
+# complexity is O(n^2 logn) where O(logn) is the time complexity for each iteration
+#TODO: make distance function a parameter
 def get_shorest_path(edges: List[LineString], source=None, dest=None):
+    """
+    :param edges: List of LineString elements representing the edges of the graph to search
+    :param source: The start point of the robot
+    :param dest: The destination of the robot
+    :return: List representing the vertices in the shortest path and cost of the shortest path (in distance, could be calculated with a given function)
+    """
     graph = build_graph(edges)
     openheap = [(0,source, None)]
-    close_list = []
-    
+    close_nodes = AVL_Tree().insert(None, (float('inf'), 0))
+    prev_list = AVL_Tree().insert(None, (float('inf'), 0))
 
-    prev_list = dijkstra(graph, dest, openheap, close_list)
+    prev_list, cost = uniform_cost_search(graph, dest, openheap, close_nodes, prev_list)
     #rebuild path from prev_list
     path = []
     v = dest
     while v != source:
         path.append(v)
         v = prev_list[v]
+    if v != source:
+        return [], -1 #path does not exist
     path.append(source)
     path = path[::-1]
-    return path
-    return LineString(path)
+    return path, cost
+    #return LineString(path)
 
 
 def is_valid_file(parser, arg):
@@ -217,7 +297,7 @@ if __name__ == '__main__':
 
     lines = get_visibility_graph(c_space_obstacles, source, dest)
     #TODO: fill in the next line (graph search for shortest path withing the graph)
-    shortest_path, cost = None, None
+    shortest_path, cost = get_shorest_path(lines, source, dest)
 
     plotter3 = Plotter()
     plotter3.add_robot(source, dist)
