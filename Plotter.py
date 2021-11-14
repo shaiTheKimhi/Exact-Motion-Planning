@@ -31,12 +31,13 @@ class Plotter:
             plt.plot(list(edge.xy[0]), list(edge.xy[1]), color='black', linestyle='dashed')
 
     def add_shorterst_path(self, edges):
-        current_vertice = edges[0]
-        for edge in edges[1:]:
-            plt.plot([current_vertice[0], edge[0]], [current_vertice[1], edge[1]], color='yellow', linewidth=5,
-                     alpha=0.4)
-            self.add_robot(edge, self.distance_to_vertex)
-            current_vertice = edge
+        if len(edges) > 0:
+            current_vertex = edges[0]
+            for edge in edges[1:]:
+                plt.plot([current_vertex[0], edge[0]], [current_vertex[1], edge[1]], color='yellow', linewidth=5,
+                        alpha=0.4)
+                self.add_robot(edge, self.distance_to_vertex)
+                current_vertex = edge
 
     def show_graph(self):
         plt.autoscale()

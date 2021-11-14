@@ -89,7 +89,8 @@ def get_minkowsky_sum(original_shape: Polygon, r: float) -> Polygon:
 #TODO: improve this check by checking intersection only with edges of polygons (List of LineStrings) which is a point and not one of the given points
 def check_edge_validity(obstacles: List[Polygon], edge: LineString):
     for ob in obstacles:
-        if edge.intersects(ob):
+        x = edge.intersection(ob)
+        if x.intersects(ob):
             x = edge.intersection(ob)
             if type(x) is not LineString: #intersection is a point
                 continue
@@ -100,7 +101,6 @@ def check_edge_validity(obstacles: List[Polygon], edge: LineString):
             #print(edge.intersection(ob))
             return False
     return True
-
 
 def get_visibility_graph(obstacles: List[Polygon], source=None, dest=None) -> List[LineString]:
     """
