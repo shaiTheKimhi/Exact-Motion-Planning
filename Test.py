@@ -3,12 +3,13 @@ import os
 from typing import List, Tuple
 
 from Plotter import Plotter
-from shapely.geometry.polygon import Polygon, LineString
+from shapely.geometry.polygon import Polygon, LineString, Point
+from shapely.geometry.multipoint import MultiPoint
+
 from heapq import heappush, heappop
 import numpy as np
 
 from utils.AVL import TreeNode, AVL_Tree
-
 
 def is_ccw(points):
     points_local = np.concatenate([points, [points[0], points[1]]])
@@ -85,14 +86,14 @@ def get_minkowsky_sum(original_shape: Polygon, r: float) -> Polygon:
     out_points = np.array(out_points)
     return Polygon(out_points)
 
+
 # Check edge is valid in visibility graph
 #TODO: improve this check by checking intersection only with edges of polygons (List of LineStrings) which is a point and not one of the given points
 def check_edge_validity(obstacles: List[Polygon], edge: LineString):
     for ob in obstacles:
-        x = edge.intersection(ob)
-        if x.intersects(ob):
+        if edge.intersects(ob):
             x = edge.intersection(ob)
-            if type(x) is not LineString: #intersection is a point
+            if type(x) is Point or type(x) is MultiPoint: #intersection with object is at most at the exterior (hence intersection is a single point)
                 continue
             sides = LineString(list(ob.exterior.coords))
             x = edge.intersection(sides)
@@ -134,6 +135,7 @@ def get_visibility_graph(obstacles: List[Polygon], source=None, dest=None) -> Li
                 continue
             #check edge possiblity
             edge = LineString([p1,p2])
+
             if check_edge_validity(obstacles, edge):
                 edges.append(edge)
     return edges #Until now, works with O(n^3) complexity, could be reduced to O(n^2logn) if sorting obstacles by bounds and ignoring check with non relevant obstacles

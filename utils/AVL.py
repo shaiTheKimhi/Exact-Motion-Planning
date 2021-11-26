@@ -35,7 +35,7 @@ class AVL_Tree(object):
     # new root of subtree.
     def insert(self, root, key, val=0):
      
-        # Step 1 - Perform normal BST
+        # Perform normal BST
         if not root:
             return TreeNode(key, val)
         elif key < root.key:
@@ -43,30 +43,30 @@ class AVL_Tree(object):
         else:
             root.right = self.insert(root.right, key, val)
  
-        # Step 2 - Update the height of the
+        # Update the height of the
         # ancestor node
         root.height = 1 + max(self.getHeight(root.left),
                            self.getHeight(root.right))
  
-        # Step 3 - Get the balance factor
+        # Get the balance factor
         balance = self.getBalance(root)
  
-        # Step 4 - If the node is unbalanced,
+        # If the node is unbalanced,
         # then try out the 4 cases
-        # Case 1 - Left Left
+        # Left Left
         if balance > 1 and key < root.left.key:
             return self.rightRotate(root)
  
-        # Case 2 - Right Right
+        # Right Right
         if balance < -1 and key > root.right.key:
             return self.leftRotate(root)
  
-        # Case 3 - Left Right
+        # Left Right
         if balance > 1 and key > root.left.key:
             root.left = self.leftRotate(root.left)
             return self.rightRotate(root)
  
-        # Case 4 - Right Left
+        # Right Left
         if balance < -1 and key < root.right.key:
             root.right = self.rightRotate(root.right)
             return self.leftRotate(root)
